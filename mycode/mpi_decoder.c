@@ -238,8 +238,9 @@ int decoder_read_ts_packet(DecoderData *data,int pid){
 				if(packet->ts_header.pid==pid) {
 					data->packet_count++;
 					//printf("packet size %d \n",packet->payload.size);
-					mpp_packet_write(data->packet, 0,&packet->payload.data[0],packet->payload.size);
-					mpp_packet_set_pos(data->packet, &packet->payload.data[0]);
+					//mpp_packet_write(data->packet, 0,&packet->payload.data[0],packet->payload.size);
+					//printf("offset %d \n",packet->payload.payload_offset);
+					mpp_packet_set_pos(data->packet, &data->buf[packet->payload.payload_offset]);
 					mpp_packet_set_length(data->packet, packet->payload.size);
 					//mpp_packet_clr_eos(data->packet);
 					free(packet);
