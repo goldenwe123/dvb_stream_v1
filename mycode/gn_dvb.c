@@ -148,8 +148,10 @@ int dvbcfg_zapchannel_parse(FILE *file,struct gn_program **program )
 		if (!line_pos)
 			continue;
 
-		p[count].property[8].cmd = DTV_TUNE;
-		p[count].property_len=9;
+		p[count].property[8].cmd = DTV_DELIVERY_SYSTEM;
+		p[count].property[8].u.data = SYS_DVBT;
+		p[count].property[9].cmd = DTV_TUNE;
+		p[count].property_len = 10;
 
 		/* parse video and audio pids and service id */
 		p[count].video_pid = dvbcfg_parse_int(&line_pos, ":");
