@@ -1,4 +1,6 @@
 #include"gn_dvb.h"
+#include"gn_rtp.h"
+#include"conver_format.h"
 #include "mpi_decoder.h"
 #include "mpi_encoder.h"
 #include "RgaApi.h"
@@ -21,8 +23,8 @@
 #define BUFFER_SIZE 300
 #define	FPS	30
 
-#define	FRAME_WIDTH	1280
-#define	FRAME_HEIGHT 720
+#define	FRAME_WIDTH	640
+#define	FRAME_HEIGHT 360
 
 MppFrame buffer[BUFFER_SIZE];
 RK_U32 buffer_flag[BUFFER_SIZE]={0};
@@ -173,15 +175,20 @@ void frame_preprocess(MppFrame* frame){
 		buffer_flag[p]=1;
 		p++;
 		p=p%BUFFER_SIZE;
-
 }
 
 FILE *ts_fp;
 
 void ts(char *ts){
 	
-	//fwrite(ts , 1 , 188, ts_fp );
+	//fwrite(ts , 1 , 188, decoder->fp_output );
 	
+	gn_rtp_put(ts);
+	
+	
+	
+	//gn_rtp_send(ts);
+	/*
 	char buf[12 + 188];
 	int bufbase = 0;
 
@@ -213,7 +220,7 @@ void ts(char *ts){
 	rtpseq++;
 	
 	//printf("num %d\n",ts[3]);
-	
+	*/
 	
 	
 }	
@@ -300,7 +307,7 @@ void *thread_encoder(void *arg)
 	RK_S64 start = mpp_time();
 	do{
 				
-		mpp_log("encoder frame count: %d\n",encoder->frame_count);	
+		//mpp_log("encoder frame count: %d\n",encoder->frame_count);	
 		
 		RK_S64  minute = ((mpp_time()-start)/1000000)/60;
 		RK_S64  sec = ((mpp_time()-start)/1000000)%60;
@@ -323,6 +330,14 @@ void *thread_encoder(void *arg)
 	}while(!encoder->pkt_eos);
 
 		mpp_log("encoder finish\n");			
+}
+
+void *rtp_sender()
+{
+	while(1) {
+	 gn_rtp_send();
+	 gn_rtp_audio_send();
+	} 
 }	
 
 int main(){
@@ -338,7 +353,7 @@ int main(){
 	pthread_t thd_in;
 	pthread_t thd_out;
 	pthread_t thd_encoder;
-
+    pthread_t thd_rtp;
 	//////////////////////
 
 	char frontend_devname[]="/dev/dvb/adapter0/frontend0";
@@ -350,8 +365,9 @@ int main(){
 	
 	pFile = fopen( "demo.h264","w" );
 	
-	ts_fp=fopen( "out.ts" , "w" );
-	connect_init("192.168.1.235" ,"8888");
+	ts_fp=fopen( "/mnt/sdcard/out.ts" , "w" );
+	//connect_init("192.168.1.234" ,"8888");
+	gn_rtp_connect_init("192.168.1.234" ,"8888");
 
 
 	int channels_nums = dvbcfg_zapchannel_parse(channel_file,&program);
@@ -385,7 +401,7 @@ int main(){
 	if(!decoder_data_init(&decoder))
 		return -1;
 
-	fp_output=fopen("out.yuv", "w+b");
+	fp_output=fopen("out.ts", "w+b");
 
 	decoder_set_input(decoder,device->demux_fd);
 	decoder_set_output(decoder,fp_output);
@@ -406,6 +422,12 @@ int main(){
     }
 
 	ret = pthread_create(&thd_encoder, &attr, thread_encoder, NULL);
+    if (ret) {
+        mpp_err("failed to create thread for output ret %d\n", ret);
+        return 1;
+    }
+	
+	ret = pthread_create(&thd_rtp, &attr, rtp_sender, NULL);
     if (ret) {
         mpp_err("failed to create thread for output ret %d\n", ret);
         return 1;

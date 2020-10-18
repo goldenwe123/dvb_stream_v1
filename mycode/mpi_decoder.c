@@ -2,6 +2,33 @@
 
 #include "mpi_decoder.h"
 
+void get_audio_pts(unsigned char *p){
+	
+	float frame_rate=30;
+	float pts_offset=0x5A00;
+	static unsigned long pts=0x0000;
+	
+	pts = pts + pts_offset;
+	
+	p[0] = 0x21 | ((pts >> 29) & 0x0E);
+	p[1] = (pts >>22 & 0xFF);
+	p[2] =	0x01 | ((pts >> 14 ) & 0xFE);
+	p[3] = (pts >> 7 & 0xFF);
+	p[4] =0x01 | ((pts << 1 ) & 0xFE);
+	
+}
+
+unsigned long get_video_pts(){
+	
+	float frame_rate=29.97;
+	float pts_offset=90000/frame_rate;
+	static unsigned long pts=0;
+	
+	pts = pts + pts_offset;
+	
+	
+	return pts;
+}
 
 size_t read_file(char *name,FILE **fp_input){
 	
@@ -40,7 +67,7 @@ int decoder_data_init(DecoderData **data){
 	p->width=0;
 	p->height=0;
 	
-	p->fp_input=NULL;
+	p->fp_input = 0;
 	p->fp_output=NULL;
 	
     // input / output
@@ -144,14 +171,14 @@ void decoder_data_deinit(DecoderData *data){
     }
 
     if (data->fp_input) {
-        fclose(data->fp_input);
-        data->fp_input = NULL;
+        close(data->fp_input);
+        data->fp_input = 0;
     }
 		
 	return;
 }
 
-void decoder_set_input(DecoderData *data,FILE *fp_input){
+void decoder_set_input(DecoderData *data,int fp_input){
 	
 	data->fp_input=fp_input;
 	
@@ -175,7 +202,7 @@ int decoder_put_packet(DecoderData *data){
 }	
 		
 int decoder_read_packet(DecoderData *data){
-	
+/*	
 	//mpp_log("read packet\n");
 	data->pkt_eos=0;
 	size_t read_size=0; 
@@ -197,23 +224,24 @@ int decoder_read_packet(DecoderData *data){
 		// reset pos and set valid length
         mpp_packet_set_pos(data->packet, data->buf);
         mpp_packet_set_length(data->packet, read_size);
-		
+
 		if (data->pkt_eos) {
             mpp_packet_set_eos(data->packet);
             mpp_log("found last packet\n");
         } else
             mpp_packet_clr_eos(data->packet);
-		
-		
+				
 	return data->pkt_eos;	
-	
-		
+*/	
+
 }
 
 int decoder_read_ts_packet(DecoderData *data,int pid){
 
-
 	int num=read( data->fp_input,data->buf,188);
+	static int isHaveVideo = 0;
+	static int isWriteAudio = 0;
+	static unsigned int video_pts = 0;
 
 	if(num!=188) {
 		printf("***num %d %x\n",num,data->buf[0]);
@@ -235,19 +263,96 @@ int decoder_read_ts_packet(DecoderData *data,int pid){
 		int ret=ts_packet_init(data->buf,&packet);
 		//printf("packet size %d \n",packet->payload.size);
 		if(ret>0) {
-				if(packet->ts_header.pid==pid) {
-					data->packet_count++;
-					//printf("packet size %d \n",packet->payload.size);
-					//mpp_packet_write(data->packet, 0,&packet->payload.data[0],packet->payload.size);
-					//printf("offset %d \n",packet->payload.payload_offset);
-					mpp_packet_set_pos(data->packet, &data->buf[packet->payload.payload_offset]);
-					mpp_packet_set_length(data->packet, packet->payload.size);
-					//mpp_packet_clr_eos(data->packet);
-					free(packet);
-					packet=NULL;
-
-					return 0;
-				}
+				//fwrite(data->buf,1,188,data->fp_output);
+				//gn_rtp_send(data->buf);
+					if(packet->ts_header.pid==pid) {
+								
+								if(packet->pes_header.flag_pts == 0x80 || packet->pes_header.flag_pts == 0xc0) {
+								
+									if(isHaveVideo == 0) {
+											isHaveVideo = 1;
+											
+											unsigned int temp = packet->pes_header.pts[3];
+											
+											video_pts = packet->pes_header.pts[2];
+											printf("!!!!!!!!!!!!video pts %x %x %d \n",packet->pes_header.pts[3],packet->pes_header.pts[4],video_pts);
+									}
+								}	
+								
+								data->packet_count++;
+								//printf("packet size %d \n",packet->payload.size);
+								//mpp_packet_write(data->packet, 0,&packet->payload.data[0],packet->payload.size);
+								//printf("offset %d \n",packet->payload.payload_offset);
+								mpp_packet_set_pos(data->packet, &data->buf[packet->payload.payload_offset]);
+								mpp_packet_set_length(data->packet, packet->payload.size);
+								//mpp_packet_clr_eos(data->packet);
+								
+								free(packet);
+								packet=NULL;
+								return 0;
+								
+					
+					}else if(packet->ts_header.pid==4002) {
+						
+						if(isHaveVideo){
+							
+							if(isWriteAudio) {
+							
+								if(packet->pes_header.flag == 1){
+									data->buf[0X08] = 0;
+									data->buf[0X09] = 0;
+									get_audio_pts(&data->buf[0X0d]);
+								}	
+								
+								gn_rtp_audio_put(data->buf);
+							    //fwrite(data->buf,1,188,data->fp_output);
+							//fwrite(&data->buf[packet->payload.payload_offset],1,packet->payload.size,data->fp_output);
+							}else {
+								
+								
+								if(packet->pes_header.flag_pts == 0x80 || packet->pes_header.flag_pts == 0xc0) {
+									
+									unsigned int temp = packet->pes_header.pts[3];
+									unsigned int audio_pts = packet->pes_header.pts[2];
+									
+									if(audio_pts > video_pts) {
+										isWriteAudio = 1;
+										printf("**************audio pts %x %x %d \n",packet->pes_header.pts[3],packet->pes_header.pts[4],audio_pts);
+										
+										if(packet->pes_header.flag == 1){
+											data->buf[0X08] = 0;
+											data->buf[0X09] = 0;
+											get_audio_pts(&data->buf[0X0d]);
+										}	
+								
+								
+										///fwrite(data->buf,1,188,data->fp_output);
+										//gn_rtp_send(data->buf);
+										gn_rtp_audio_put(data->buf);
+										
+									}
+								}	
+								
+							}	
+						}
+						
+						/*
+								if(packet->pes_header.flag == 1){
+									data->buf[0X08] = 0;
+									data->buf[0X09] = 0;
+									get_audio_pts(&data->buf[0X0d]);
+								}	
+						
+						//fwrite(data->buf,1,188,data->fp_output);
+						//gn_rtp_send(data->buf);
+						gn_rtp_audio_put(data->buf);
+						*/
+					}else if(packet->ts_header.pid==4000 || packet->ts_header.pid==0) {
+						//fwrite(data->buf,1,188,data->fp_output);
+						//gn_rtp_send(data->buf);
+						gn_rtp_audio_put(data->buf);
+					}	
+					
 		}
 
 		free(packet);

@@ -5,6 +5,8 @@
 #include "mpp_env.h"
 #include "mpp_time.h"
 #include "mpp_common.h"
+#include <stdio.h>
+#include <string.h>
 
 #define min(a,b) \
    ({ __typeof__ (a) _a = (a); \
@@ -13,9 +15,9 @@
 
 void get_pts(unsigned char *p){
 	
-	float frame_rate=30;
+	float frame_rate=29.97;
 	float pts_offset=90000/frame_rate;
-	static unsigned long pts=0;
+	static unsigned long pts = 0;
 	
 	pts = pts + pts_offset;
 	
@@ -143,7 +145,7 @@ void h264_to_ts(MppPacket* packet,MppPacket* header,void (*func_ptr)(char*)){
 	char *data_ptr   = mpp_packet_get_pos(packet);	
 	size_t data_len  = mpp_packet_get_length(packet);
 	
-	char *pes_ptr[20];
+	char pes_ptr[20];
 	size_t pes_len=20;
 	
 	get_pts(pes_header.pts);

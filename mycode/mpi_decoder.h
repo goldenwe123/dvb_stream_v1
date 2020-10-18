@@ -5,6 +5,7 @@
 #include "mpp_env.h"
 #include "mpp_time.h"
 #include "mpp_common.h"
+#include "gn_rtp.h"
 
 #define MPI_DEC_STREAM_SIZE         (SZ_4K)
 
@@ -31,7 +32,7 @@ typedef struct
 	char            *buf;
 	RK_U64 			frm_eos;
 
-	FILE            *fp_input;
+	int            fp_input;
     FILE            *fp_output;
 	
 	
@@ -41,7 +42,7 @@ int decoder_data_init(DecoderData **data);
 
 void decoder_data_deinit(DecoderData *data);
 
-void decoder_set_input(DecoderData *data,FILE *fp_input);
+void decoder_set_input(DecoderData *data,int fp_input);
 
 void decoder_set_output(DecoderData *data,FILE *fp_output);
 

@@ -1,3 +1,6 @@
+#ifndef TS_PACKET_H_
+#define TS_PACKET_H_
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -59,3 +62,5 @@ typedef struct {
 }Ts_packet;
 
 int ts_packet_init(unsigned char *buf,Ts_packet **packet);
+
+#endif /*TS_PACKET_H_*/

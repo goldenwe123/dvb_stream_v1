@@ -237,6 +237,13 @@ int dvb_open_chennel(struct gn_dvb *device,struct gn_program *program)
 	unsigned int pid = program->audio_pid;
 	ret = ioctl(device->demux_fd, DMX_ADD_PID, &pid);
 
+	pid = 0;
+	ret = ioctl(device->demux_fd, DMX_ADD_PID, &pid);
+	
+	
+	pid = 4000;
+	ret = ioctl(device->demux_fd, DMX_ADD_PID, &pid);
+	
 	if(ret) {
 		printf("add pid failed\n");
 		return 1;
