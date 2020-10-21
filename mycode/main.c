@@ -27,7 +27,8 @@
 #define	FRAME_HEIGHT 360
 
 MppFrame buffer[BUFFER_SIZE];
-RK_U32 buffer_flag[BUFFER_SIZE]={0};
+uint16_t head = 0;
+uint16_t tail = 0;
 
 DecoderData *decoder = NULL;
 EncoderData *encoder = NULL;
@@ -124,7 +125,7 @@ void frame_preprocess(MppFrame* frame){
 	
 
 		
-		while(buffer_flag[p]){
+		while(tail + 1 == head){
 			//mpp_log("decoder wait buffer\n");
 					
 		}
@@ -133,10 +134,10 @@ void frame_preprocess(MppFrame* frame){
 		RK_U32 src_height = mpp_frame_get_height(frame);
 		RK_U32 src_hor_stride = mpp_frame_get_hor_stride(frame);
 		RK_U32 src_ver_stride = mpp_frame_get_ver_stride(frame);
-		RK_U32 dst_width = mpp_frame_get_width(buffer[p]);
-		RK_U32 dst_height = mpp_frame_get_height(buffer[p]);
-		RK_U32 dst_hor_stride = mpp_frame_get_hor_stride(buffer[p]);
-		RK_U32 dst_ver_stride = mpp_frame_get_ver_stride(buffer[p]);
+		RK_U32 dst_width = mpp_frame_get_width(buffer[tail]);
+		RK_U32 dst_height = mpp_frame_get_height(buffer[tail]);
+		RK_U32 dst_hor_stride = mpp_frame_get_hor_stride(buffer[tail]);
+		RK_U32 dst_ver_stride = mpp_frame_get_ver_stride(buffer[tail]);
 		
 		mpp_frame_get_fmt(frame);
 		
@@ -144,7 +145,7 @@ void frame_preprocess(MppFrame* frame){
 		src_ptr = mpp_buffer_get_ptr(src_buf);
 		size_t len  = mpp_buffer_get_size(src_buf);
 			
-		dst_buf=mpp_frame_get_buffer(buffer[p]);
+		dst_buf=mpp_frame_get_buffer(buffer[tail]);
 		dst_ptr = mpp_buffer_get_ptr(dst_buf);
 		size_t len2  = mpp_buffer_get_size(dst_buf);
 		
@@ -170,11 +171,11 @@ void frame_preprocess(MppFrame* frame){
 		//dump_mpp_frame_to_file(buffer[p], decoder->fp_output);	
 		/////////////////////////////////////////////
 		//memcpy(dst_ptr, src_ptr, len2);
-		mpp_frame_set_eos(buffer[p], mpp_frame_get_eos(frame));
-	
-		buffer_flag[p]=1;
-		p++;
-		p=p%BUFFER_SIZE;
+		mpp_frame_set_eos(buffer[tail], mpp_frame_get_eos(frame));
+		
+		tail++;
+        tail = tail % BUFFER_SIZE;
+
 }
 
 FILE *ts_fp;
@@ -295,12 +296,12 @@ void *thread_encoder(void *arg)
 	
 	MppPacket packet = NULL;
 	
-	while(!buffer_flag[p]){
+	while(head == tail){
 		//mpp_log("encoder wait buffer\n");
 		
 	}
 	
-	encoder_data_init(&encoder,buffer[p],FPS);
+	encoder_data_init(&encoder,buffer[head],FPS);
 	encoder_get_header(encoder);
 	encoder->fp_output = fopen("out.h264", "w+b");
 	encoder_write_packet(encoder->fp_output,&encoder->packet_header);
@@ -316,13 +317,13 @@ void *thread_encoder(void *arg)
 		mpp_log("FPS: %f AVG: %d TIME: %d %d\n",calculate_fps(&encoder->frame_count),avg_fps,minute,sec);
 		
 		
-			encoder_run(encoder,buffer[p],*frame_packet);
+			encoder_run(encoder,buffer[head],*frame_packet);
+						
+			head++;
+			head = head % BUFFER_SIZE;
 			
-			buffer_flag[p]=0;
-			p++;
-			p=p%BUFFER_SIZE;
 			
-		while(!buffer_flag[p] && !encoder->pkt_eos){
+		while(head == tail && !encoder->pkt_eos){
 		//mpp_log("encoder wait buffer\n");
 		
 		}
