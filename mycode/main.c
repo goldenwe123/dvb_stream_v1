@@ -43,39 +43,6 @@ static struct addrinfo *outaddrs = NULL;
 int ssrc;
 static uint16_t rtpseq = 0;
 
-void connect_init(char *outhost ,char *outport){
-	
-
-	// resolve host/port
-	if ((outhost != NULL) && (outport != NULL)) {
-		int res;
-		struct addrinfo hints;
-		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_DGRAM;
-		if ((res = getaddrinfo(outhost, outport, &hints, &outaddrs)) != 0) {
-			fprintf(stderr, "Unable to resolve requested address: %s\n", gai_strerror(res));
-			exit(1);
-		}
-		
-		// open output socket
-		outfd = socket(outaddrs->ai_family, outaddrs->ai_socktype, outaddrs->ai_protocol);
-		if (outfd < 0) {
-			fprintf(stderr, "Failed to open output socket\n");
-			exit(1);
-		}
-
-	}
-	srandom(time(NULL));
-	
-	rtpseq = random();
-	ssrc = random();
-	
-	
-	
-}
-
-
 float calculate_fps(RK_U32 *frame_count){
 	
 	static RK_S64 last_time = 0;
@@ -182,48 +149,9 @@ FILE *ts_fp;
 
 void ts(char *ts){
 	
+	
 	//fwrite(ts , 1 , 188, decoder->fp_output );
-	
-	gn_rtp_put(ts);
-	
-	
-	
-	//gn_rtp_send(ts);
-	/*
-	char buf[12 + 188];
-	int bufbase = 0;
-
-	buf[0x0] = 0x80;
-	buf[0x1] = 0x21;
-	buf[0x4] = 0x00; // }
-	buf[0x5] = 0x00; // } FIXME: should really be a valid stamp
-	buf[0x6] = 0x00; // }
-	buf[0x7] = 0x00; // }
-	buf[0x8] = ssrc >> 24;
-	buf[0x9] = ssrc >> 16;
-	buf[0xa] = ssrc >> 8;
-	buf[0xb] = ssrc;
-	bufbase = 12;
-	
-	buf[2] = rtpseq >> 8;
-	buf[3] = rtpseq;
-	
-	memcpy(buf+bufbase , ts , 188);
-	
-	if (sendto(outfd, buf, bufbase + 188, 0, outaddrs->ai_addr, outaddrs->ai_addrlen) < 0) {
-		if (errno != EINTR) {
-			fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!Socket send failure: %m !!!!!!!!!!!!!!\n");
-				
-		}
-	}
-    usleep(100);
-			
-	rtpseq++;
-	
-	//printf("num %d\n",ts[3]);
-	*/
-	
-	
+	gn_rtp_put(ts);	
 }	
 
 void frame_packet(MppPacket* packet){
@@ -367,7 +295,6 @@ int main(){
 	pFile = fopen( "demo.h264","w" );
 	
 	ts_fp=fopen( "/mnt/sdcard/out.ts" , "w" );
-	//connect_init("192.168.1.234" ,"8888");
 	gn_rtp_connect_init("192.168.1.234" ,"8888");
 
 
