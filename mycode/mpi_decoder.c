@@ -292,7 +292,7 @@ int decoder_read_ts_packet(DecoderData *data,int pid){
 								return 0;
 								
 					
-					}else if(packet->ts_header.pid==4002) {
+					}else if(packet->ts_header.pid==(pid+1)) {
 						
 						if(isHaveVideo){
 							
@@ -304,8 +304,8 @@ int decoder_read_ts_packet(DecoderData *data,int pid){
 									get_audio_pts(&data->buf[0X0d]);
 								}	
 								
-								gn_rtp_audio_put(data->buf);
-							    //fwrite(data->buf,1,188,data->fp_output);
+								gn_tcp_audio_put(data->buf);
+							  //  fwrite(data->buf,1,188,data->fp_output);
 							//fwrite(&data->buf[packet->payload.payload_offset],1,packet->payload.size,data->fp_output);
 							}else {
 								
@@ -326,14 +326,15 @@ int decoder_read_ts_packet(DecoderData *data,int pid){
 										}	
 								
 								
-										///fwrite(data->buf,1,188,data->fp_output);
+										//fwrite(data->buf,1,188,data->fp_output);
 										//gn_rtp_send(data->buf);
-										gn_rtp_audio_put(data->buf);
+										gn_tcp_audio_put(data->buf);
 										
 									}
 								}	
 								
-							}	
+							}
+							
 						}
 						
 						/*
@@ -347,10 +348,10 @@ int decoder_read_ts_packet(DecoderData *data,int pid){
 						//gn_rtp_send(data->buf);
 						gn_rtp_audio_put(data->buf);
 						*/
-					}else if(packet->ts_header.pid==4000 || packet->ts_header.pid==0) {
+					}else if(packet->ts_header.pid==(pid - 1) || packet->ts_header.pid==0) {
 						//fwrite(data->buf,1,188,data->fp_output);
 						//gn_rtp_send(data->buf);
-						gn_rtp_audio_put(data->buf);
+						gn_tcp_audio_put(data->buf);
 					}	
 					
 		}

@@ -23,8 +23,13 @@
 #define BUFFER_SIZE 300
 #define	FPS	30
 
-#define	FRAME_WIDTH	640
-#define	FRAME_HEIGHT 360
+#define	FRAME_WIDTH	1280
+#define	FRAME_HEIGHT 720
+
+#define FRONTEND_DEV "/dev/dvb/adapter0/frontend0"
+#define DEMUX_DEV "/dev/dvb/adapter0/demux0"
+#define CHANNEL_FILE "channels.conf"
+
 
 MppFrame buffer[BUFFER_SIZE];
 uint16_t head = 0;
@@ -42,6 +47,8 @@ static struct addrinfo *outaddrs = NULL;
 
 int ssrc;
 static uint16_t rtpseq = 0;
+
+uint8_t test[188];
 
 float calculate_fps(RK_U32 *frame_count){
 	
@@ -93,7 +100,7 @@ void frame_preprocess(MppFrame* frame){
 
 		
 		while(tail + 1 == head){
-			//mpp_log("decoder wait buffer\n");
+			mpp_log("decoder wait buffer\n");
 					
 		}
 			
@@ -150,15 +157,16 @@ FILE *ts_fp;
 void ts(char *ts){
 	
 	
-	//fwrite(ts , 1 , 188, decoder->fp_output );
-	gn_rtp_put(ts);	
+	fwrite(ts , 1 , 188, decoder->fp_output );
+	gn_tcp_put(ts);
+	//gn_tcp_send(ts);
 }	
 
 void frame_packet(MppPacket* packet){
 	
 	
 	
-	h264_to_ts(packet,encoder->packet_header,*ts);
+	h264_to_ts(packet, encoder->packet_header, program[channel].video_pid, *ts);
 	//encoder_write_packet(encoder->fp_output,&packet);
 		 
 }	
@@ -225,7 +233,7 @@ void *thread_encoder(void *arg)
 	MppPacket packet = NULL;
 	
 	while(head == tail){
-		//mpp_log("encoder wait buffer\n");
+		mpp_log("encoder wait buffer\n");
 		
 	}
 	
@@ -242,7 +250,7 @@ void *thread_encoder(void *arg)
 		RK_S64  sec = ((mpp_time()-start)/1000000)%60;
 		RK_S64  avg_fps = encoder->frame_count/((mpp_time()-start)/1000000);
 		
-		mpp_log("FPS: %f AVG: %d TIME: %d %d\n",calculate_fps(&encoder->frame_count),avg_fps,minute,sec);
+		mpp_log("FPS: %f AVG: %d TIME: %d %d Buffer head: %d tail %d\n",calculate_fps(&encoder->frame_count),avg_fps,minute,sec,head,tail);
 		
 		
 			encoder_run(encoder,buffer[head],*frame_packet);
@@ -263,13 +271,47 @@ void *thread_encoder(void *arg)
 
 void *rtp_sender()
 {
+	
+	static int count_video = 0;
 	while(1) {
-	 gn_rtp_send();
-	 gn_rtp_audio_send();
+	 //gn_rtp_send();
+	 //gn_rtp_audio_send();
+	 
+		float video_sec = gn_tcp_get_video_pts()/90000.0;
+		float audio_sec = gn_tcp_get_audio_pts()/90000.0;
+		//printf("VIDEO PTS: %f AUDIO PTS: %f\n",video_sec,audio_sec);
+	  	  
+		//if( (video_sec - audio_sec) < 1 )
+			gn_tcp_send();
+	//if( (audio_sec - video_sec) < 0.001 )
+			gn_tcp_audio_send();
+		/*
+		if(isVideoEmpty())
+			continue;
+		
+		if(isVideo())
+			count_video++;
+		
+		if(count_video < 7 )
+			gn_tcp_send();
+		else{
+			
+			
+				if(isAudioEmpty())
+					continue;
+			
+			
+			gn_tcp_audio_send();
+			
+			if(isAudio())
+				count_video=0;
+		}
+		*/
+		
 	} 
 }	
 
-int main(){
+int main(int argc, char *argv[]){
 
 
 	MPP_RET ret = MPP_OK;
@@ -284,11 +326,7 @@ int main(){
 	pthread_t thd_encoder;
     pthread_t thd_rtp;
 	//////////////////////
-
-	char frontend_devname[]="/dev/dvb/adapter0/frontend0";
-	char demux_devname[]="/dev/dvb/adapter0/demux0";
-	char *chanfile = "channels.conf";
-	FILE *channel_file = fopen(chanfile, "r");
+	FILE *channel_file = fopen(CHANNEL_FILE, "r");
 
 	FILE *pFile;
 	
@@ -296,11 +334,12 @@ int main(){
 	
 	ts_fp=fopen( "/mnt/sdcard/out.ts" , "w" );
 	gn_rtp_connect_init("192.168.1.234" ,"8888");
+	channel = atoi(argv[1]);
 
 
 	int channels_nums = dvbcfg_zapchannel_parse(channel_file,&program);
 
-	 dvb_open_device(frontend_devname,demux_devname,&device);
+	 dvb_open_device(FRONTEND_DEV,DEMUX_DEV,&device);
 
 	if(ret) {
         	printf("open device faild \n");
@@ -336,6 +375,13 @@ int main(){
 
 	pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	
+	///
+	gn_tcp_init();
+	gn_tcp_listener();
+	for(int i=0;i<188;i++)
+		test[i]=i;
+	
 
     ret = pthread_create(&thd_in, &attr, thread_input, NULL);
     if (ret) {

@@ -75,7 +75,7 @@ MPP_RET encoder_data_init(EncoderData **data,MppFrame* frame,RK_S32 fps)
 	p->fps = fps;
     p->gop = 30;
     p->bps = p->width * p->height / 8 * p->fps;
-	p->bps = 500000;
+	p->bps = 2000000;
 	prep_cfg->change        = MPP_ENC_PREP_CFG_CHANGE_INPUT |
                               MPP_ENC_PREP_CFG_CHANGE_ROTATION |
                               MPP_ENC_PREP_CFG_CHANGE_FORMAT;

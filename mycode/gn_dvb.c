@@ -241,7 +241,7 @@ int dvb_open_chennel(struct gn_dvb *device,struct gn_program *program)
 	ret = ioctl(device->demux_fd, DMX_ADD_PID, &pid);
 	
 	
-	pid = 4000;
+	pid = program->video_pid - 1;
 	ret = ioctl(device->demux_fd, DMX_ADD_PID, &pid);
 	
 	if(ret) {

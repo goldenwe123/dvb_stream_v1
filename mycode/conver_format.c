@@ -111,7 +111,7 @@ void put_data(char *packet,char *data,size_t len){
 }	
 
 
-void h264_to_ts(MppPacket* packet,MppPacket* header,void (*func_ptr)(char*)){
+void h264_to_ts(MppPacket* packet,MppPacket* header,int pid,void (*func_ptr)(char*)){
 	
 	Ts_header ts_header={
 	
@@ -119,7 +119,7 @@ void h264_to_ts(MppPacket* packet,MppPacket* header,void (*func_ptr)(char*)){
 		.transport_error_indicator = 0,
 		.payload_unit_start_indicator = 0,
 		.transport_priority = 0,
-		.pid = 4001,
+		.pid = pid,
 		.transport_scrambling_control = 0,
 		.adaptation_field_control = 1,
 		.continuity_counter = 0
